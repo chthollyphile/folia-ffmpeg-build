@@ -1,51 +1,80 @@
-Static audio-only FFmpeg builds
-===============================
+# Folia FFmpeg builds
 
-This project contains scripts for small static audio-only FFmpeg builds. The
-default builds are used for Chromaprint packaging (`fpcalc`), and there is an
-additional variant that can also encode audio.
+Small, static, audio-focused FFmpeg builds for the Folia Electron desktop app.
+This repository is derived from
+[`acoustid/ffmpeg-build`](https://github.com/acoustid/ffmpeg-build) and keeps its
+upstream variants available while adding a Folia-specific runtime contract.
 
-Building is done using GitHub Actions. You can find the built binaries on the
-releases page.
+The pinned FFmpeg version is **8.1.2**. Builds do not enable GPL-only or
+nonfree components and are distributed under FFmpeg's LGPL terms. The build
+scripts themselves retain their MIT license.
 
-The current FFmpeg version is **8.1.2**. The builds are LGPL-licensed (no
-`--enable-gpl` or `--enable-nonfree`).
+## Folia runtime contract
 
-Variants
---------
+`FFMPEG_VARIANT=folia` is the default. It provides:
 
-Each platform is built in two variants, selected with the `FFMPEG_VARIANT`
-environment variable:
+- audio decoding for MP3, AAC/ALAC, FLAC, Vorbis, Opus, PCM, APE, WavPack,
+  TTA, WMA, AIFF, CAF, DSD and E-AC-3;
+- MOV/MP4 demuxing for E-AC-3 tracks carrying the `ec-3` codec tag in `.m4a`;
+- FLAC output with PCM S16LE WAV as the compatibility fallback;
+- the `null` muxer used by Folia to decode and validate the complete output;
+- `aresample` for channel and sample-format conversion;
+- only local `file` and `pipe` protocols, with network access disabled;
+- only the `ffmpeg` program; `ffprobe` and `ffplay` are not bundled.
 
-  - `decode` (default, output label `audio`) — audio **decoders** only, as
-    needed by Chromaprint. This is the small, fully self-contained build.
-  - `encode` (output label `audio-encode`) — everything in `decode` plus native
-    audio **encoders** and muxers for transcoding, including MP3 via a
-    statically linked [LAME](https://lame.sourceforge.io/), built from source by
-    `build-lame.sh`.
+Folia's caller deliberately omits `-ar`, so the source sampling rate is
+preserved. A 96 kHz input therefore remains 96 kHz after transcoding.
 
-Supported platforms:
+This remains an audio-focused build. Future video processing should use a
+separate `folia-video` variant rather than silently expanding the desktop
+runtime binary.
 
-  - Linux
-      * `x86_64-linux-gnu`
-      * `arm64-linux-gnu`
-  - Windows
-      * `x86_64-w64-mingw32`
-      * `i686-w64-mingw32` (32-bit)
-  - macOS
-      * `x86_64-apple-macos10.9` (macOS Mavericks and newer on Intel CPU)
-      * `arm64-apple-macos11` (macOS Big Sur and newer on Apple M1 CPU)
+## Supported targets
 
-Building locally
-----------------
+- Linux: `x86_64-linux-gnu`, `arm64-linux-gnu`
+- Windows: `x86_64-w64-mingw32`
+- macOS: `x86_64-apple-macos10.9`, `arm64-apple-macos11`
 
-The build scripts read the target architecture and variant from environment
-variables, for example:
+## Build locally
 
 ```sh
-ARCH=x86_64 FFMPEG_VARIANT=decode ./build-linux.sh
-ARCH=x86_64 FFMPEG_VARIANT=encode ./build-linux.sh
-TARGET=arm64-apple-macos11 FFMPEG_VARIANT=encode ./build-macos.sh
+ARCH=x86_64 FFMPEG_VARIANT=folia ./build-linux.sh
+ARCH=x86_64 FFMPEG_VARIANT=folia ./build-windows.sh
+TARGET=arm64-apple-macos11 FFMPEG_VARIANT=folia ./build-macos.sh
 ```
 
-The resulting tree is placed under `artifacts/`.
+Outputs are written below `artifacts/`. Source downloads use HTTPS and are
+rejected unless they match the pinned SHA-256 in `common.sh`.
+
+## Verify
+
+For a native Linux build, pass the Folia binary and an optional full reference
+FFmpeg used only to generate synthetic E-AC-3-in-M4A and CAF fixtures:
+
+```sh
+./verify-folia.sh artifacts/ffmpeg-8.1.2-folia-x86_64-linux-gnu/bin/ffmpeg /usr/bin/ffmpeg
+```
+
+Verification checks the component allowlist, absence of network protocols,
+FLAC/WAV output, complete decoding through the `null` muxer, 96 kHz
+preservation, E-AC-3 in `.m4a`, and CAF input.
+
+## Releases
+
+Tags such as `v8.1.2-folia.1` build every supported target and publish:
+
+- one target-specific `.tar.gz` per platform and architecture;
+- the exact corresponding FFmpeg source archive;
+- `SHA256SUMS` covering every published archive.
+
+Each binary archive also contains `share/folia-ffmpeg/BUILD-INFO.txt`, the
+FFmpeg LGPL text, and the build-scripts MIT license.
+
+Folia's application repository should pin a release asset and SHA-256 in its
+own manifest, download it during packaging, and copy only `bin/ffmpeg` (or
+`bin/ffmpeg.exe`) into `resources/ffmpeg/`.
+
+## Upstream variants
+
+The original `decode` and `encode` variants remain available for upstream
+comparison. Folia releases build only the `folia` variant.

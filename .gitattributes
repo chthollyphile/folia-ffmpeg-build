@@ -1,0 +1,5 @@
+# .gitattributes
+# Build scripts run under Bash on Linux and macOS and must retain LF endings.
+*.sh text eol=lf
+*.yml text eol=lf
+*.md text eol=lf

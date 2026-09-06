@@ -7,10 +7,7 @@ BASE_DIR=$(pwd)
 
 source common.sh
 
-if [ ! -e $FFMPEG_TARBALL ]
-then
-	curl -s -L -O $FFMPEG_TARBALL_URL
-fi
+download_verified "$FFMPEG_TARBALL_URL" "$FFMPEG_TARBALL" "$FFMPEG_TARBALL_SHA256"
 
 : ${TARGET?}
 
@@ -69,5 +66,6 @@ perl -pi -e 's{HAVE_MACH_MACH_TIME_H 1}{HAVE_MACH_MACH_TIME_H 0}' config.h
 
 make V=1
 make install
+install_distribution_metadata "$BASE_DIR/$OUTPUT_DIR"
 
 chown -R $(stat -f '%u:%g' $BASE_DIR) $BASE_DIR/$OUTPUT_DIR

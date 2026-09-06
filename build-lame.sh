@@ -11,12 +11,9 @@ BASE_DIR=$(pwd)
 
 source common.sh
 
-: ${LAME_PREFIX?}
+download_verified "$LAME_TARBALL_URL" "$LAME_TARBALL" "$LAME_TARBALL_SHA256"
 
-if [ ! -e $LAME_TARBALL ]
-then
-	curl -s -L -o $LAME_TARBALL $LAME_TARBALL_URL
-fi
+: ${LAME_PREFIX?}
 
 BUILD_DIR=$(mktemp -d -p $(pwd) lame.XXXXXXXX)
 trap 'rm -rf $BUILD_DIR' EXIT

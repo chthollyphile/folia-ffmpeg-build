@@ -2,7 +2,8 @@
 
 FFMPEG_VERSION=8.1.2
 FFMPEG_TARBALL=ffmpeg-$FFMPEG_VERSION.tar.gz
-FFMPEG_TARBALL_URL=http://ffmpeg.org/releases/$FFMPEG_TARBALL
+FFMPEG_TARBALL_URL=https://ffmpeg.org/releases/$FFMPEG_TARBALL
+FFMPEG_TARBALL_SHA256=32faba5ef67340d54724941eae1425580791195312a4fd13bf6f820a2818bf22
 
 # LAME is the MP3 encoder used by the encode variant. It is LGPL, which matches
 # the license of these FFmpeg builds (configured without --enable-gpl), and is
@@ -10,13 +11,67 @@ FFMPEG_TARBALL_URL=http://ffmpeg.org/releases/$FFMPEG_TARBALL
 LAME_VERSION=3.100
 LAME_TARBALL=lame-$LAME_VERSION.tar.gz
 LAME_TARBALL_URL=https://downloads.sourceforge.net/project/lame/lame/$LAME_VERSION/$LAME_TARBALL
+LAME_TARBALL_SHA256=ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
+
+sha256_file() {
+    if command -v sha256sum >/dev/null 2>&1
+    then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
+}
+
+# Downloads a pinned source archive and rejects both transport and checksum failures.
+download_verified() {
+    local url=$1
+    local destination=$2
+    local expected_sha256=$3
+
+    if [ ! -e "$destination" ]
+    then
+        curl --fail --location --retry 3 --output "$destination" "$url"
+    fi
+
+    local actual_sha256
+    actual_sha256=$(sha256_file "$destination")
+    if [ "$actual_sha256" != "$expected_sha256" ]
+    then
+        echo "Checksum mismatch for $destination" >&2
+        echo "expected: $expected_sha256" >&2
+        echo "actual:   $actual_sha256" >&2
+        rm -f "$destination"
+        return 1
+    fi
+}
+
+# Adds the exact source/configuration record and licenses next to each binary.
+install_distribution_metadata() {
+    local output_dir=$1
+    local metadata_dir=$output_dir/share/folia-ffmpeg
+
+    mkdir -p "$metadata_dir"
+    cp "$BASE_DIR/LICENSE" "$metadata_dir/build-scripts-MIT.txt"
+    cp COPYING.LGPLv2.1 "$metadata_dir/FFmpeg-LGPL-2.1.txt"
+    {
+        echo "FFmpeg version: $FFMPEG_VERSION"
+        echo "Source: $FFMPEG_TARBALL_URL"
+        echo "Source SHA-256: $FFMPEG_TARBALL_SHA256"
+        echo "Variant: $FFMPEG_VARIANT"
+        printf 'Configure flags:'
+        printf ' %q' "${FFMPEG_CONFIGURE_FLAGS[@]}"
+        echo
+    } > "$metadata_dir/BUILD-INFO.txt"
+}
 
 # Which build variant to produce:
-#   decode - audio decoders only (default, used for Chromaprint/fpcalc)
+#   decode - upstream audio decoder build used for Chromaprint/fpcalc
 #   encode - decoders plus native audio encoders/muxers for transcoding,
 #            including MP3 encoding via a statically linked libmp3lame
+#   folia  - Folia playback fallback: audio decoders plus FLAC/PCM output,
+#            complete-output validation and source sample-rate preservation
 # No GPL-only or nonfree codecs are ever included, so the builds stay LGPL.
-FFMPEG_VARIANT=${FFMPEG_VARIANT:-decode}
+FFMPEG_VARIANT=${FFMPEG_VARIANT:-folia}
 
 FFMPEG_CONFIGURE_FLAGS=(
     --disable-shared
@@ -254,6 +309,28 @@ case $FFMPEG_VARIANT in
             --enable-muxer=matroska
 
             # Needed for sample-rate / sample-format conversion when transcoding.
+            --enable-filter=aresample
+        )
+        ;;
+    folia)
+        FFMPEG_VARIANT_LABEL=folia
+        FFMPEG_CONFIGURE_FLAGS+=(
+            # Folia bundles only ffmpeg. ffprobe remains available in the
+            # upstream variants but is not needed by the desktop runtime.
+            --disable-ffprobe
+
+            # CAF input is part of Folia's local-library extension contract.
+            # E-AC-3 in .m4a uses the base mov demuxer + eac3 decoder.
+            --enable-demuxer=caf
+
+            --enable-encoder=flac
+            --enable-encoder=pcm_s16le
+            --enable-muxer=flac
+            --enable-muxer=wav
+            --enable-muxer=null
+
+            # Lets FFmpeg convert channel/sample formats without forcing a
+            # sample rate; 96 kHz inputs therefore remain 96 kHz.
             --enable-filter=aresample
         )
         ;;

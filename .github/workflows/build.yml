@@ -1,4 +1,4 @@
-name: Build static ffmpeg
+name: Build Folia FFmpeg
 
 on:
   push:
@@ -7,117 +7,110 @@ on:
     tags:
       - v*
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   package-linux:
     runs-on: ubuntu-22.04
     strategy:
+      fail-fast: false
       matrix:
-        arch:
-          - x86_64
-          - arm64
-        variant:
-          - decode
-          - encode
+        arch: [x86_64, arm64]
     env:
       ARCH: ${{ matrix.arch }}
-      FFMPEG_VARIANT: ${{ matrix.variant }}
+      FFMPEG_VARIANT: folia
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - name: Install dependencies
-        run: |
-          sudo apt-get update -y && \
-          sudo apt-get install -y nasm
+        run: sudo apt-get update -y && sudo apt-get install -y nasm ffmpeg
       - name: Install ARM64 compiler
         if: env.ARCH == 'arm64'
-        run: |
-          sudo apt-get update -y && \
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+        run: sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Build
         run: ./build-linux.sh
+      - name: Verify native Folia build
+        if: env.ARCH == 'x86_64'
+        run: ./verify-folia.sh "$(find artifacts -path '*/bin/ffmpeg' -type f)" "$(command -v ffmpeg)"
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-linux-${{ env.ARCH }}-${{ env.FFMPEG_VARIANT }}
+          name: ffmpeg-linux-${{ env.ARCH }}-folia
           path: artifacts/
 
   package-windows:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        arch:
-          - x86_64
-          - i686
-        variant:
-          - decode
-          - encode
     env:
-      ARCH: ${{ matrix.arch }}
-      FFMPEG_VARIANT: ${{ matrix.variant }}
+      ARCH: x86_64
+      FFMPEG_VARIANT: folia
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - name: Install dependencies
-        run: |
-          sudo apt-get update -y && \
-          sudo apt-get install -y nasm mingw-w64
+        run: sudo apt-get update -y && sudo apt-get install -y nasm mingw-w64
       - name: Build
         run: ./build-windows.sh
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-windows-${{ env.ARCH }}-${{ env.FFMPEG_VARIANT }}
+          name: ffmpeg-windows-x86_64-folia
           path: artifacts/
 
   package-macos:
     runs-on: macos-latest
     strategy:
+      fail-fast: false
       matrix:
-        # https://developer.apple.com/documentation/apple-silicon/building-a-universal-macos-binary#Update-the-Architecture-List-of-Custom-Makefiles
         target:
           - x86_64-apple-macos10.9
           - arm64-apple-macos11
-        variant:
-          - decode
-          - encode
     env:
       TARGET: ${{ matrix.target }}
-      FFMPEG_VARIANT: ${{ matrix.variant }}
+      FFMPEG_VARIANT: folia
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - name: Install dependencies
         run: brew install nasm
       - name: Build
         run: ./build-macos.sh
-      - name: Archive artifacts
+      - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-${{ matrix.target }}-${{ env.FFMPEG_VARIANT }}
+          name: ffmpeg-${{ matrix.target }}-folia
           path: artifacts/
 
   release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
-    needs:
-      - package-linux
-      - package-windows
-      - package-macos
+    needs: [package-linux, package-windows, package-macos]
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v4
         with:
           path: artifacts/
-      - name: Make tarballs
+      - name: Add corresponding FFmpeg source
         run: |
-          mkdir artifacts/release/
-          cd artifacts/
+          source common.sh
+          download_verified "$FFMPEG_TARBALL_URL" "$FFMPEG_TARBALL" "$FFMPEG_TARBALL_SHA256"
+          mkdir -p artifacts/release
+          cp "$FFMPEG_TARBALL" artifacts/release/
+      - name: Make release archives and checksums
+        run: |
+          mkdir -p artifacts/release
+          cd artifacts
           for dir in ffmpeg-*/ffmpeg-*
           do
-            name=$(basename $dir)
-            tar czf release/$name.tar.gz -C $(dirname $dir) $name
+            name=$(basename "$dir")
+            tar czf "release/$name.tar.gz" -C "$(dirname "$dir")" "$name"
           done
-          ls -l release/
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/v')
+          cd release
+          sha256sum *.tar.gz > SHA256SUMS
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/release/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            artifacts/release/*.tar.gz
+            artifacts/release/SHA256SUMS
