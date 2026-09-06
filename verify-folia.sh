@@ -13,7 +13,9 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 require_component() {
     local listing=$1
     local component=$2
-    if ! grep -Eq "[[:space:]]$component([[:space:]]|$)" <<<"$listing"
+    # Some FFmpeg components expose comma-separated aliases, for example
+    # "mov,mp4,m4a,3gp,3g2,mj2", so commas are valid name boundaries too.
+    if ! grep -Eq "(^|[[:space:],])$component([[:space:],]|$)" <<<"$listing"
     then
         echo "Missing required FFmpeg component: $component" >&2
         exit 1
