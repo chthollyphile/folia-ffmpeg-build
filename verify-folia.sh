@@ -37,7 +37,7 @@ for component in mov caf aiff ape asf flac ogg tta wav wv
 do
     require_component "$demuxers" "$component"
 done
-for component in flac pcm_s16le
+for component in flac pcm_s16le pcm_s24le pcm_s32le
 do
     require_component "$encoders" "$component"
 done
