@@ -325,6 +325,8 @@ case $FFMPEG_VARIANT in
 
             --enable-encoder=flac
             --enable-encoder=pcm_s16le
+            --enable-encoder=pcm_s24le
+            --enable-encoder=pcm_s32le
             --enable-muxer=flac
             --enable-muxer=wav
             --enable-muxer=null
