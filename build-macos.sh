@@ -55,7 +55,9 @@ FFMPEG_CONFIGURE_FLAGS+=(
     --enable-cross-compile
     --target-os=darwin
     --arch=$ARCH
-    --extra-ldflags="-target $TARGET"
+    # Drops any dylib the linker was handed but nothing references, so an
+    # autodetected host library can never become a launch-time dependency.
+    --extra-ldflags="-target $TARGET -Wl,-dead_strip_dylibs"
     --extra-cflags="-target $TARGET"
     --enable-runtime-cpudetect
 )
@@ -66,6 +68,21 @@ perl -pi -e 's{HAVE_MACH_MACH_TIME_H 1}{HAVE_MACH_MACH_TIME_H 0}' config.h
 
 make V=1
 make install
+
+# The shipped binaries may load only libraries every macOS install has. A dylib
+# from the build host's package manager would make them abort at launch on
+# machines without it, while still running fine on this runner.
+for binary in $BASE_DIR/$OUTPUT_DIR/bin/*
+do
+    non_system_libs=$(otool -L "$binary" | tail -n +2 | awk '{print $1}' | grep -Ev '^(/usr/lib/|/System/Library/)' || true)
+    if [ -n "$non_system_libs" ]
+    then
+        echo "$binary links non-system libraries:" >&2
+        echo "$non_system_libs" >&2
+        exit 1
+    fi
+done
+
 install_distribution_metadata "$BASE_DIR/$OUTPUT_DIR"
 
 chown -R $(stat -f '%u:%g' $BASE_DIR) $BASE_DIR/$OUTPUT_DIR

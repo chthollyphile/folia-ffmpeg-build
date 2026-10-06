@@ -93,6 +93,11 @@ FFMPEG_CONFIGURE_FLAGS=(
     --disable-bzlib
     --disable-iconv
     --disable-libxcb
+    # xlib is autodetected; on a build host with X11 installed (Homebrew's
+    # libx11 on the macOS runners) it links libX11 into ffmpeg even though no
+    # enabled component uses it, and the binary then fails to launch anywhere
+    # that library is missing.
+    --disable-xlib
     --disable-bsfs
     --disable-filters
     --disable-parsers
