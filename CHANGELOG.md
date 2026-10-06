@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Upgraded FFmpeg to 8.1.2.
 
+### Fixed
+- macOS arm64 builds no longer link Homebrew's libX11, which made `ffmpeg`
+  abort at launch on machines without it. xlib is disabled, unused dylibs are
+  dead-stripped, and the macOS build now fails if a binary links anything
+  outside `/usr/lib` and `/System/Library`.
+
 ## [4.2.2-5] - 2020-02-19
 ### Changed
 - Linux and Windows builds now use the manylinux2010 Docker image defined by the Python community.
