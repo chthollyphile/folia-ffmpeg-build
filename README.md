@@ -32,7 +32,7 @@ runtime binary.
 ## Supported targets
 
 - Linux: `x86_64-linux-gnu`, `arm64-linux-gnu`
-- Windows: `x86_64-w64-mingw32`
+- Windows: `x86_64-w64-mingw32`, `aarch64-w64-mingw32`
 - macOS: `x86_64-apple-macos10.9`, `arm64-apple-macos11`
 
 ## Build locally
@@ -40,6 +40,8 @@ runtime binary.
 ```sh
 ARCH=x86_64 FFMPEG_VARIANT=folia ./build-linux.sh
 ARCH=x86_64 FFMPEG_VARIANT=folia ./build-windows.sh
+# Requires LLVM-MinGW (aarch64-w64-mingw32-* tools) on PATH:
+ARCH=aarch64 FFMPEG_VARIANT=folia ./build-windows.sh
 TARGET=arm64-apple-macos11 FFMPEG_VARIANT=folia ./build-macos.sh
 ```
 
@@ -58,6 +60,12 @@ FFmpeg used only to generate synthetic E-AC-3-in-M4A and CAF fixtures:
 Verification checks the component allowlist, absence of network protocols,
 FLAC/WAV output, complete decoding through the `null` muxer, 96 kHz
 preservation, E-AC-3 in `.m4a`, and CAF input.
+
+Windows ARM64 cross-compiles on Linux with a checksum-pinned LLVM-MinGW toolchain.
+CI checks the PE machine type and rejects toolchain DLL dependencies, then runs
+`verify-folia.sh` on `windows-11-arm` before publishing a release. The ARM64 archive
+is named `ffmpeg-8.1.2-folia-aarch64-w64-mingw32.tar.gz`; it contains the same source
+and license metadata as the other targets.
 
 ## Releases
 

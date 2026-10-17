@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+- Native Windows ARM64 (`aarch64-w64-mingw32`) Folia builds via LLVM-MinGW,
+  with architecture/static-runtime checks and verification on Windows ARM64.
 - `encode` build variant with native audio encoders/muxers and MP3 encoding via
   a statically linked libmp3lame. Selected with `FFMPEG_VARIANT=encode`.
 - `arm64-linux-gnu` builds.
