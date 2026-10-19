@@ -55,7 +55,7 @@ then
     exit 1
 fi
 
-python3 - "$WORK_DIR/input-96k.wav" <<'PY'
+"${PYTHON:-python3}" - "$WORK_DIR/input-96k.wav" <<'PY'
 import math
 import struct
 import sys

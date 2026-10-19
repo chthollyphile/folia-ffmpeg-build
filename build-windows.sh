@@ -31,11 +31,24 @@ tar --strip-components=1 -xf $BASE_DIR/$FFMPEG_TARBALL
 
 FFMPEG_CONFIGURE_FLAGS+=(
     --prefix=$BASE_DIR/$OUTPUT_DIR
-    --extra-cflags='-static -static-libgcc -static-libstdc++'
     --target-os=mingw32
     --arch=$ARCH
     --cross-prefix=$ARCH-w64-mingw32-
 )
+
+case "$ARCH" in
+    aarch64)
+        # LLVM-MinGW provides the aarch64 GCC-compatible driver; link its runtime statically.
+        FFMPEG_CONFIGURE_FLAGS+=(
+            --enable-cross-compile
+            --disable-autodetect
+            --extra-ldflags=-static
+        )
+        ;;
+    *)
+        FFMPEG_CONFIGURE_FLAGS+=(--extra-cflags='-static -static-libgcc -static-libstdc++')
+        ;;
+esac
 
 ./configure "${FFMPEG_CONFIGURE_FLAGS[@]}"
 make
