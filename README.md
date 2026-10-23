@@ -15,6 +15,8 @@ scripts themselves retain their MIT license.
 
 - audio decoding for MP3, AAC/ALAC, FLAC, Vorbis, Opus, PCM, APE, WavPack,
   TTA, WMA, AIFF, CAF, DSD and E-AC-3;
+- DSD from both DSF (`.dsf`) and DSDIFF (`.dff`), including DST-compressed
+  DSDIFF;
 - MOV/MP4 demuxing for E-AC-3 tracks carrying the `ec-3` codec tag in `.m4a`;
 - FLAC output with PCM S16LE WAV as the compatibility fallback;
 - the `null` muxer used by Folia to decode and validate the complete output;
@@ -22,8 +24,11 @@ scripts themselves retain their MIT license.
 - only local `file` and `pipe` protocols, with network access disabled;
 - only the `ffmpeg` program; `ffprobe` and `ffplay` are not bundled.
 
-Folia's caller deliberately omits `-ar`, so the source sampling rate is
-preserved. A 96 kHz input therefore remains 96 kHz after transcoding.
+Folia's caller omits `-ar` for PCM and compressed sources, so the source
+sampling rate is preserved. A 96 kHz input therefore remains 96 kHz after
+transcoding. DSD is the one exception: FFmpeg decodes DSD64 at 352.8 kHz and
+DSD256 at 1411.2 kHz, which the FLAC encoder refuses, so Folia passes
+`-ar 88200` for `.dsf` and `.dff` inputs.
 
 This remains an audio-focused build. Future video processing should use a
 separate `folia-video` variant rather than silently expanding the desktop
@@ -59,7 +64,8 @@ FFmpeg used only to generate synthetic E-AC-3-in-M4A and CAF fixtures:
 
 Verification checks the component allowlist, absence of network protocols,
 FLAC/WAV output, complete decoding through the `null` muxer, 96 kHz
-preservation, E-AC-3 in `.m4a`, and CAF input.
+preservation, synthetic DSF and DSDIFF input brought down to 88.2 kHz,
+E-AC-3 in `.m4a`, and CAF input.
 
 Windows ARM64 cross-compiles on Linux with a checksum-pinned LLVM-MinGW toolchain.
 CI checks the PE machine type and rejects toolchain DLL dependencies, then runs

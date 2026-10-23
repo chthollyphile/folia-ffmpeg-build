@@ -328,6 +328,11 @@ case $FFMPEG_VARIANT in
             # E-AC-3 in .m4a uses the base mov demuxer + eac3 decoder.
             --enable-demuxer=caf
 
+            # DSDIFF (.dff) is read by the iff demuxer. Plain DSD uses the
+            # base dsd_msbf decoder; DST-compressed DSDIFF needs dst.
+            --enable-demuxer=iff
+            --enable-decoder=dst
+
             --enable-encoder=flac
             --enable-encoder=pcm_s16le
             --enable-encoder=pcm_s24le

@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+- DSDIFF (`.dff`) input in the Folia variant: the `iff` demuxer plus the `dst`
+  decoder for DST-compressed files. `verify-folia.sh` now requires the DSF and
+  DSDIFF components and transcodes synthetic DSD64 fixtures in both containers
+  to 88.2 kHz FLAC.
 - Native Windows ARM64 (`aarch64-w64-mingw32`) Folia builds via LLVM-MinGW,
   with architecture/static-runtime checks and verification on Windows ARM64.
 - `encode` build variant with native audio encoders/muxers and MP3 encoding via
